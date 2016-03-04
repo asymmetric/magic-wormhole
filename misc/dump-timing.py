@@ -12,13 +12,15 @@ labels = dict([(num, " "*num + "[%d]" % (num+1) + " "*(num_streams-1-num))
                for num in range(num_streams)])
 timeline = []
 groups_out = []
+group_fns = {}
 for which,fn in enumerate(streams):
+    group_fns[which] = fn
     with open(fn, "rb") as f:
         for (start, sent, finish, what, start_d, finish_d) in json.load(f):
             timeline.append( (start, sent, finish, which, what,
                               start_d, finish_d) )
     print("%s is %s" % (labels[which], fn))
-    groups_out.append({"id": which, "content": fn,
+    groups_out.append({"id": "%d" % which, "content": fn,
                        "className": "group-%d" % which})
 
 
@@ -26,6 +28,8 @@ timeline.sort(key=lambda row: row[0])
 first = timeline[0][0]
 print("started at %s" % time.ctime(start))
 viz_out = []
+server_groups = set()
+
 for num, (start, sent, finish, which, what,
           start_d, finish_d) in enumerate(timeline):
     delta = start - first
@@ -52,19 +56,34 @@ for num, (start, sent, finish, which, what,
     viz_className = "item-group-%d" % which
     if "waiting" in start_d:
         viz_className += " wait-%s" % start_d["waiting"]
-    viz_out.append({"id": num, "start": viz_start, "end": viz_end,
-                    "group": which, #"subgroup": num,
-                    "content": viz_content,
-                    "className": viz_className, # or style:
-                    "type": viz_type,
-                    })
+    subgroup = 0
+    if what.startswith("get ") or what == "list":
+        subgroup = 1
+    elif what.startswith("send "):
+        subgroup = 2
+    elif what == "API get data" or what == "API send data":
+        subgroup = 3
+    item = {"id": num, "start": viz_start, "end": viz_end,
+            "group": "%d" % which, #"subgroup": subgroup,
+            "content": viz_content,
+            "className": viz_className, # or style:
+            "type": viz_type,
+            }
+    sent_item = None
     if sent is not None:
-        viz_out.append({"id": "%d.sent" % num, "start": sent*1000,
-                        "group": which, #"subgroup": num,
-                        "content": "sent",
-                        "className": viz_className,
-                        "type": "point"})
-
+        server_group = "%d-server" %  which
+        sent_item = {"id": "%d.sent" % num, "start": sent*1000,
+                     "group": server_group,
+                     "content": "",
+                     "className": viz_className,
+                     "type": "point"}
+        server_groups.add((which, server_group))
+    viz_out.append(item)
+    if sent_item:
+        viz_out.append(sent_item)
+for (which,group) in server_groups:
+    groups_out.append({"id": group, "content": "server %s" % group_fns[which]})
+groups_out.sort(key=lambda g: g["id"])
 
 here = os.path.dirname(__file__)
 web_root = os.path.join(here, "web")

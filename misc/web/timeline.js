@@ -3,8 +3,8 @@ var vis, $; // hush
 var container = document.getElementById("viz");
 var options = {editable: false,
                showCurrentTime: false,
-               snap: null,
-               order: function(a,b) { return a.id - b.id; }
+               snap: null
+               //order: function(a,b) { return a.id > b.id; }
               };
 var timeline = new vis.Timeline(container, options);
 var items;
@@ -21,6 +21,8 @@ $.getJSON("data.json", function(data) {
     timeline.setOptions({min: start - (span/10),
                          max: end + (span/10),
                          zoomMin: 50,
+                         //order: function(a,b) { return a.id > b.id; },
+                         stack: true,
                          zoomMax: 1.2*span});
     var bar = timeline.addCustomTime(start, "cursor");
     timeline.on("timechange", update_cursor);
